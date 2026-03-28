@@ -1,0 +1,5 @@
+outputs
+uploads
+.venv
+__pycache__
+pycache

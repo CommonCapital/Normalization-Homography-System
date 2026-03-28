@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bird's-Eye View Converter</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/css/app.css" />
+</head>
+<body>
+  <div class="noise"></div>
+
+  <!-- Header -->
+  <header>
+    <div class="logo">
+      <span class="logo-icon">
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+          <circle cx="14" cy="14" r="13" stroke="#00e5a0" stroke-width="1.5"/>
+          <path d="M8 20 L14 8 L20 20" stroke="#00e5a0" stroke-width="1.5" stroke-linejoin="round"/>
+          <path d="M10 16 L18 16" stroke="#00e5a0" stroke-width="1"/>
+          <!-- Eye shape -->
+          <ellipse cx="14" cy="14" rx="4" ry="2.5" stroke="#00e5a0" stroke-width="1" opacity="0.5"/>
+          <circle cx="14" cy="14" r="1.2" fill="#00e5a0"/>
+        </svg>
+      </span>
+      <span class="logo-text">APEX<em>VIEW</em></span>
+    </div>
+    <nav>
+      <span class="nav-tag">45° → 90°</span>
+      <span class="nav-tag">30° → 90°</span>
+      <span class="status-dot" id="api-dot" title="API status"></span>
+    </nav>
+  </header>
+
+  <main>
+    <!-- Hero -->
+    <section class="hero">
+      <div class="hero-label">Homographic normalization engine</div>
+      <h1>Turn oblique video<br/><span class="accent">into bird's-eye view</span></h1>
+      <p class="hero-sub">Upload footage shot at 30° or 45° elevation. Get back a clean, top-down perspective — frame by frame, in real time.</p>
+    </section>
+
+    <!-- Upload panel -->
+    <section class="panel" id="upload-panel">
+      <div class="panel-header">
+        <span class="step-num">01</span>
+        <span>Upload video</span>
+      </div>
+
+      <div class="drop-zone" id="drop-zone">
+        <input type="file" id="file-input" accept="video/*" hidden />
+        <div class="drop-inner" id="drop-inner">
+          <div class="drop-icon">
+            <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+              <rect x="1" y="1" width="38" height="38" rx="4" stroke="currentColor" stroke-width="1" stroke-dasharray="4 3"/>
+              <path d="M20 26V14M14 20l6-6 6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <p class="drop-text">Drop video here or <button class="link-btn" onclick="document.getElementById('file-input').click()">browse</button></p>
+          <p class="drop-sub">MP4 · MOV · AVI · MKV · WebM</p>
+        </div>
+        <div class="file-selected" id="file-selected" style="display:none">
+          <div class="file-thumb" id="file-thumb"></div>
+          <div class="file-info">
+            <span class="file-name" id="file-name"></span>
+            <span class="file-meta" id="file-meta"></span>
+          </div>
+          <button class="remove-btn" id="remove-btn" title="Remove">✕</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Settings panel -->
+    <section class="panel" id="settings-panel">
+      <div class="panel-header">
+        <span class="step-num">02</span>
+        <span>Configure transform</span>
+      </div>
+
+      <div class="settings-grid">
+
+        <div class="setting-group">
+          <label class="setting-label">Camera elevation angle</label>
+          <div class="angle-selector" id="angle-selector">
+            <button class="angle-btn active" data-angle="30">30°</button>
+            <button class="angle-btn" data-angle="45">45°</button>
+            <button class="angle-btn" data-angle="60">60°</button>
+            <button class="angle-btn custom" data-angle="custom">Custom</button>
+          </div>
+          <div class="custom-angle-wrap" id="custom-angle-wrap" style="display:none">
+            <input type="range" id="custom-angle-slider" min="10" max="80" value="45" />
+            <span class="custom-angle-val" id="custom-angle-val">45°</span>
+          </div>
+        </div>
+
+        <div class="setting-group">
+          <label class="setting-label">Output resolution</label>
+          <div class="res-selector" id="res-selector">
+            <button class="res-btn active" data-w="800" data-h="600">800×600</button>
+            <button class="res-btn" data-w="1280" data-h="720">1280×720</button>
+            <button class="res-btn" data-w="1920" data-h="1080">1920×1080</button>
+          </div>
+        </div>
+
+        <div class="setting-group full-width">
+          <label class="setting-label">
+            Corner detection mode
+            <span class="badge" id="mode-badge">Auto</span>
+          </label>
+          <div class="mode-toggle">
+            <button class="mode-btn active" id="mode-auto" onclick="setMode('auto')">
+              <span class="mode-icon">⟳</span> Automatic
+              <small>Uses camera angle to estimate ROI</small>
+            </button>
+            <button class="mode-btn" id="mode-manual" onclick="setMode('manual')">
+              <span class="mode-icon">◎</span> Manual corners
+              <small>Preview frame and click 4 points</small>
+            </button>
+          </div>
+        </div>
+
+        <!-- Manual corner picker -->
+        <div class="corner-picker" id="corner-picker" style="display:none">
+          <div class="corner-hint">
+            Click <strong>4 corners</strong> of the ground plane in order: 
+            <em>top-left → top-right → bottom-right → bottom-left</em>
+          </div>
+          <div class="preview-wrap">
+            <canvas id="preview-canvas"></canvas>
+            <div class="corner-count" id="corner-count">0 / 4 corners</div>
+          </div>
+          <div class="corner-list" id="corner-list"></div>
+          <button class="btn-ghost sm" onclick="clearCorners()">Clear corners</button>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Action -->
+    <div class="action-row">
+      <button class="btn-primary" id="convert-btn" onclick="startConversion()" disabled>
+        <span class="btn-icon">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M8 1v9M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M2 12h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </span>
+        Convert to bird's-eye
+      </button>
+      <div class="action-hint" id="action-hint">Upload a video to get started</div>
+    </div>
+
+    <!-- Progress panel -->
+    <section class="panel" id="progress-panel" style="display:none">
+      <div class="panel-header">
+        <span class="step-num">03</span>
+        <span>Processing</span>
+        <span class="job-id-label" id="job-id-label"></span>
+      </div>
+      <div class="progress-track">
+        <div class="progress-bar" id="progress-bar"></div>
+      </div>
+      <div class="progress-stats">
+        <span id="prog-pct">0%</span>
+        <span id="prog-frames">— / — frames</span>
+        <span id="prog-fps">— fps</span>
+        <span class="status-chip" id="status-chip">queued</span>
+      </div>
+      <div class="log-box" id="log-box"></div>
+    </section>
+
+    <!-- Result panel -->
+    <section class="panel result-panel" id="result-panel" style="display:none">
+      <div class="panel-header">
+        <span class="step-num">04</span>
+        <span>Result</span>
+      </div>
+      <div class="video-compare">
+        <div class="video-col">
+          <div class="video-label">Original (oblique)</div>
+          <video id="orig-video" controls muted loop playsinline></video>
+        </div>
+        <div class="compare-divider">→</div>
+        <div class="video-col">
+          <div class="video-label">Bird's-eye (90°)</div>
+          <video id="result-video" controls muted loop playsinline></video>
+        </div>
+      </div>
+      <div class="result-actions">
+        <button class="btn-primary" id="download-btn" onclick="downloadResult()">
+          Download MP4
+        </button>
+        <button class="btn-ghost" onclick="resetApp()">Process another video</button>
+      </div>
+    </section>
+
+  </main>
+
+  <footer>
+    <span>ApexView — homographic normalization</span>
+    <span class="footer-tech">OpenCV · FastAPI · Python</span>
+  </footer>
+
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
